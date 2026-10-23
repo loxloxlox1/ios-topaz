@@ -1,5 +1,4 @@
-From 0951 Mon Sep 17 00:00:00 2001
-Subject: [PATCH 0951] topaz: sweet USB at the khaje (SM6225) addresses
+topaz: 0951 - sweet USB at the khaje (SM6225) addresses
 
 sweet's USB device/live-log stack (patches 0072-0077) was written for the
 SM7150: GCC at 0x100000, DWC3 at 0xa600000, QUSB2 at 0x88e2000. Patch 0080
@@ -21,18 +20,19 @@ The DWC3 register layout, the polled event handling and the ECM gadget
 code are SoC-independent, so only the base addresses change. USB starts
 unconditionally on topaz now; the SM7150 key/touch drivers still need
 sweethw=1.
+
+v2: the first version was malformed ("corrupt patch at line 62": hunks
+without @@ headers, and a fake index line count). Rewritten as three
+clean hunks with context lines, so git-am applies them.
 ---
- bsd/dev/sweet_ufs.c | 17 ++++++++---------
- bsd/dev/sweet_usb.c | 32 ++++++++++++++++----------------
- bsd/dev/sweet_usb.h |  4 ++--
- 3 files changed, 26 insertions(+), 27 deletions(-)
+ bsd/dev/sweet_ufs.c | 18 ++++++++++--------
+ bsd/dev/sweet_usb.c | 36 ++++++++++++++++++++------------------
+ 2 files changed, 27 insertions(+), 27 deletions(-)
 
 diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
-index 3d4d3f2..a1b2c3d 100644
 --- a/bsd/dev/sweet_ufs.c
 +++ b/bsd/dev/sweet_ufs.c
-@@ -656,24 +656,23 @@ sweet_ufs_init(void)
- 	    su.writable ? "read-write" : "read-only", su.dma_pa);
+@@ -658,16 +658,18 @@
  	sweet_log_start();
  	sweet_sample_start();
 -	/*
@@ -60,10 +60,9 @@ index 3d4d3f2..a1b2c3d 100644
  	return 0;
  }
 diff --git a/bsd/dev/sweet_usb.c b/bsd/dev/sweet_usb.c
-index 1a2b3c4..2b3c4d5 100644
 --- a/bsd/dev/sweet_usb.c
 +++ b/bsd/dev/sweet_usb.c
-@@ -10,24 +10,24 @@
+@@ -10,19 +10,19 @@
   * on by ABL (on the SM7150); the driver polls instead of using interrupts.
   */
  
@@ -119,6 +118,3 @@ index 1a2b3c4..2b3c4d5 100644
  #define QSCRATCH_HS_PHY_CTRL    0x10
  #define   UTMI_OTG_VBUS_VALID   (1u << 20)
  #define   SW_SESSVLD_SEL        (1u << 28)
--- 
-2.39.2
-
