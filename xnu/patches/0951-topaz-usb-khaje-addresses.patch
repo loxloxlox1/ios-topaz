@@ -32,7 +32,7 @@ clean hunks with context lines, so git-am applies them.
 diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
 --- a/bsd/dev/sweet_ufs.c
 +++ b/bsd/dev/sweet_ufs.c
-@@ -658,16 +658,18 @@
+@@ -658,18 +658,19 @@
  	sweet_log_start();
  	sweet_sample_start();
 -	/*
@@ -62,7 +62,7 @@ diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
 diff --git a/bsd/dev/sweet_usb.c b/bsd/dev/sweet_usb.c
 --- a/bsd/dev/sweet_usb.c
 +++ b/bsd/dev/sweet_usb.c
-@@ -10,19 +10,19 @@
+@@ -2,31 +2,32 @@
   * on by ABL (on the SM7150); the driver polls instead of using interrupts.
   */
  
@@ -95,25 +95,14 @@ diff --git a/bsd/dev/sweet_usb.c b/bsd/dev/sweet_usb.c
  };
  
 -#define DWC3_PA                 0x0a600000
--#define DWC3_SIZE               0x0000d000
--#define QUSB2_PA                0x088e2000
--#define QUSB2_SIZE              0x00000400
 +#define DWC3_PA                 0x04e00000      /* ssusb@4e00000 wrapper block */
-+#define DWC3_SIZE               0x0000d000
+ #define DWC3_SIZE               0x0000d000
+-#define QUSB2_PA                0x088e2000
 +#define QUSB2_PA                0x01613000
-+#define QUSB2_SIZE              0x00000400
-@@ -146,6 +146,16 @@
+ #define QUSB2_SIZE              0x00000400
  #define DEPCMDPAR0(n)   (0xc808 + 0x10 * (n))
  #define DEPCMD(n)       (0xc80c + 0x10 * (n))
  
-+/*
-+ * Qualcomm wrapper registers ("QSCRATCH", wrapper block base + 0xf8800).
-+ * The controller only connects (pull-up on D+) while it sees a valid VBUS
-+ * session; Linux dwc3-qcom forces that in software when the charger
-+ * reports a cable (dwc3_qcom_vbus_override_enable). Wrapper block base:
-+ * SM7150 0xa600000, khaje (SM6225) 0x4e00000 (ssusb@4e00000; the sm6115
-+ * dts puts the wrapper at 0x4ef8800).
-+ */
 +#define QSCRATCH_PA             0x04ef8800
  #define QSCRATCH_HS_PHY_CTRL    0x10
  #define   UTMI_OTG_VBUS_VALID   (1u << 20)
