@@ -1,0 +1,124 @@
+From 0951 Mon Sep 17 00:00:00 2001
+Subject: [PATCH 0951] topaz: sweet USB at the khaje (SM6225) addresses
+
+sweet's USB device/live-log stack (patches 0072-0077) was written for the
+SM7150: GCC at 0x100000, DWC3 at 0xa600000, QUSB2 at 0x88e2000. Patch 0080
+gates it behind sweethw=1 on topaz because with the SM7150 addresses it
+pokes the wrong MMIO (and hangs).
+
+The khaje (SM6225) blocks, from the phone's own kernel DT
+(khaje-usb.dtsi / khaje.dtsi / bengal-gdsc.dtsi / gcc-bengal.c):
+
+- GCC 0x1400000 (size 0x1f0000); USB30_PRIM GDSCR at +0x1a004
+- DWC3 core 0x4e00000 (the ssusb@4e00000 wrapper block, 0x100000);
+  the Qualcomm QSCRATCH wrapper is at its end: 0x4ef8800
+- QUSB2 PHY 0x1613000
+- clock branches (gcc-bengal.c): master 0x1a010, sleep 0x1a014,
+  utmi 0x1a018, cfg_noc_usb3_prim_axi 0x1a084, sys_noc_usb3_prim_axi
+  0x1a080, ahb2phy_usb 0x1d008, usb3_prim_clkref 0x9f000
+
+The DWC3 register layout, the polled event handling and the ECM gadget
+code are SoC-independent, so only the base addresses change. USB starts
+unconditionally on topaz now; the SM7150 key/touch drivers still need
+sweethw=1.
+---
+ bsd/dev/sweet_ufs.c | 17 ++++++++---------
+ bsd/dev/sweet_usb.c | 32 ++++++++++++++++----------------
+ bsd/dev/sweet_usb.h |  4 ++--
+ 3 files changed, 26 insertions(+), 27 deletions(-)
+
+diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
+index 3d4d3f2..a1b2c3d 100644
+--- a/bsd/dev/sweet_ufs.c
++++ b/bsd/dev/sweet_ufs.c
+@@ -656,24 +656,23 @@ sweet_ufs_init(void)
+ 	    su.writable ? "read-write" : "read-only", su.dma_pa);
+ 	sweet_log_start();
+ 	sweet_sample_start();
+-	/*
+-	 * Input drivers (HID services in iokit/Kernel/arm/hid/SweetHID.cpp).
+-	 * They still poke SM7150 MMIO (SPMI, GENI SE7, DWC3 at 0xa600000); on
+-	 * topaz that faults or hangs, so they only run with sweethw=1 until
+-	 * they are ported.
+-	 */
++	/*
++	 * Input drivers (HID services in iokit/Kernel/arm/hid/SweetHID.cpp).
++	 * The USB stack now runs at the khaje (SM6225) addresses (patch 0951),
++	 * so it starts on topaz too; the SM7150 key and touch drivers still
++	 * need sweethw=1 (SPMI/GENI MMIO differs).
++	 */
+ 	int hw = 0;
+ 	(void)PE_parse_boot_argn("sweethw", &hw, sizeof(hw));
+ 	if (hw == 1) {
+ 		sweet_keys_init();
+ 		sweet_touch_init();
+ 	} else {
+-		printf("SWEET UFS: keys/touch/USB skipped (topaz, sweethw=0)\n");
++		printf("SWEET UFS: keys/touch skipped (topaz, sweethw=0)\n");
+ 	}
++	sweet_usb_probe();
+ 	return 0;
+ }
+diff --git a/bsd/dev/sweet_usb.c b/bsd/dev/sweet_usb.c
+index 1a2b3c4..2b3c4d5 100644
+--- a/bsd/dev/sweet_usb.c
++++ b/bsd/dev/sweet_usb.c
+@@ -10,24 +10,24 @@
+  * on by ABL (on the SM7150); the driver polls instead of using interrupts.
+  */
+ 
+-#define GCC_PA                  0x00100000
+-#define GCC_SIZE                0x00090000
+-#define GCC_USB30_PRIM_GDSCR    0x0f004         /* bit 31: power on */
++#define GCC_PA                  0x01400000      /* khaje (SM6225) GCC */
++#define GCC_SIZE                0x001f0000
++#define GCC_USB30_PRIM_GDSCR    0x01a004        /* bit 31: power on */
+ #define CBCR_CLK_OFF            (1u << 31)
+ 
+ static const struct {
+ 	const char *name;
+ 	uint32_t    off;
+ } usb_cbcr[] = {
+-	{ "master", 0x0f010 },
+-	{ "sleep", 0x0f014 },
+-	{ "utmi", 0x0f018 },
+-	{ "cfg-noc-axi", 0x0502c },
+-	{ "aggre-axi", 0x8201c },
+-	{ "ahb2phy", 0x6a004 },
+-	{ "clkref", 0x8c010 },
++	{ "master", 0x01a010 },
++	{ "sleep", 0x01a014 },
++	{ "utmi", 0x01a018 },
++	{ "cfg-noc-axi", 0x01a084 },
++	{ "sys-noc-axi", 0x01a080 },
++	{ "ahb2phy", 0x01d008 },
++	{ "clkref", 0x09f000 },
+ };
+ 
+-#define DWC3_PA                 0x0a600000
+-#define DWC3_SIZE               0x0000d000
+-#define QUSB2_PA                0x088e2000
+-#define QUSB2_SIZE              0x00000400
++#define DWC3_PA                 0x04e00000      /* ssusb@4e00000 wrapper block */
++#define DWC3_SIZE               0x0000d000
++#define QUSB2_PA                0x01613000
++#define QUSB2_SIZE              0x00000400
+@@ -146,6 +146,16 @@
+ #define DEPCMDPAR0(n)   (0xc808 + 0x10 * (n))
+ #define DEPCMD(n)       (0xc80c + 0x10 * (n))
+ 
++/*
++ * Qualcomm wrapper registers ("QSCRATCH", wrapper block base + 0xf8800).
++ * The controller only connects (pull-up on D+) while it sees a valid VBUS
++ * session; Linux dwc3-qcom forces that in software when the charger
++ * reports a cable (dwc3_qcom_vbus_override_enable). Wrapper block base:
++ * SM7150 0xa600000, khaje (SM6225) 0x4e00000 (ssusb@4e00000; the sm6115
++ * dts puts the wrapper at 0x4ef8800).
++ */
++#define QSCRATCH_PA             0x04ef8800
+ #define QSCRATCH_HS_PHY_CTRL    0x10
+ #define   UTMI_OTG_VBUS_VALID   (1u << 20)
+ #define   SW_SESSVLD_SEL        (1u << 28)
+-- 
+2.39.2
+
