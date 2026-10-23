@@ -37,7 +37,7 @@ clean hunks with context lines, so git-am applies them.
  bsd/dev/sweet_usb.c | 30 ++++++++++++++++++------------
  2 files changed, 24 insertions(+), 18 deletions(-)
 
-diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
+diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.post.c
 --- a/bsd/dev/sweet_ufs.c
 +++ b/bsd/dev/sweet_ufs.c
 @@ -2,17 +2,11 @@
@@ -61,12 +61,13 @@ diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
 +	sweet_usb_probe();
  	return 0;
  }
-diff --git a/bsd/dev/sweet_usb.c b/bsd/dev/sweet_usb.c
+
+diff --git a/bsd/dev/sweet_usb.c b/bsd/dev/sweet_usb.post.c
 --- a/bsd/dev/sweet_usb.c
 +++ b/bsd/dev/sweet_usb.c
-@@ -2,31 +2,32 @@
-  * on by ABL (on the SM7150); the driver polls instead of using interrupts.
-  */
+@@ -39,27 +39,27 @@ void sweet_usb_probe(void);
+ static void sweet_usb_gadget_start(vm_offset_t dwc);
+ extern ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
  
 -#define GCC_PA                  0x00100000
 -#define GCC_SIZE                0x00090000
@@ -102,12 +103,14 @@ diff --git a/bsd/dev/sweet_usb.c b/bsd/dev/sweet_usb.c
 -#define QUSB2_PA                0x088e2000
 +#define QUSB2_PA                0x01613000
  #define QUSB2_SIZE              0x00000400
- #define DEPCMDPAR0(n)   (0xc808 + 0x10 * (n))
- #define DEPCMD(n)       (0xc80c + 0x10 * (n))
  
+ static uint32_t
+@@ -164,7 +164,7 @@ sweet_usb_probe(void)
+  * session; Linux dwc3-qcom forces that in software when the charger
+  * reports a cable (dwc3_qcom_vbus_override_enable).
+  */
+-#define QSCRATCH_PA             0x0a6f8800
 +#define QSCRATCH_PA             0x04ef8800
  #define QSCRATCH_HS_PHY_CTRL    0x10
  #define   UTMI_OTG_VBUS_VALID   (1u << 20)
  #define   SW_SESSVLD_SEL        (1u << 28)
-
-
